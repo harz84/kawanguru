@@ -1,0 +1,200 @@
+body {
+    font-family: sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 20px;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+.container {
+    max-width: 800px;
+    margin: 20px auto;
+    background: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+h1, h2 {
+    color: #0056b3; /* Warna biru yang lebih gelap */
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+.form-group input[type="file"],
+.form-group select,
+.form-group input[type="number"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box; /* Agar padding tidak menambah lebar */
+}
+
+.form-group input[type="file"] {
+    padding: 5px; /* Styling khusus untuk file input */
+}
+
+
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.page-range {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Jarak antar elemen */
+}
+
+.page-range label {
+    margin-bottom: 0; /* Hapus margin bawah default label */
+    white-space: nowrap; /* Agar label tidak terpotong */
+}
+
+.page-range input[type="number"] {
+    width: 80px; /* Perkecil lebar input angka */
+}
+
+button[type="submit"],
+#export-btn,
+#save-changes-btn {
+    display: block;
+    width: 100%;
+    padding: 12px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin-top: 10px;
+}
+
+button[type="submit"]:hover,
+#export-btn:hover,
+#save-changes-btn:hover {
+    background-color: #0056b3;
+}
+
+button:disabled {
+     background-color: #cccccc;
+     cursor: not-allowed;
+}
+
+
+#loading-indicator {
+    text-align: center;
+    margin-top: 30px;
+    padding: 20px;
+    background-color: #e9f5ff;
+    border: 1px solid #b3d7ff;
+    border-radius: 5px;
+    color: #0056b3;
+}
+
+.spinner {
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border-left-color: #007bff;
+    margin: 10px auto 0; /* tengahkan spinner */
+    animation: spin 1s ease infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#results-section {
+    margin-top: 30px;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+#questions-preview .question-item {
+    background-color: #fff;
+    border: 1px solid #eee;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+#questions-preview .question-text {
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+#questions-preview .question-options ul {
+    list-style: lower-alpha;
+    padding-left: 20px;
+    margin: 5px 0;
+}
+#questions-preview .question-options li {
+    margin-bottom: 5px;
+}
+
+#questions-preview textarea {
+    width: 98%; /* sedikit padding */
+    min-height: 80px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px;
+    font-family: inherit; /* samakan font dengan body */
+    font-size: inherit;
+    margin-top: 10px;
+}
+
+#questions-preview .edit-actions button {
+    background-color: #28a745; /* Hijau */
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.9em;
+    margin-right: 5px;
+}
+#questions-preview .edit-actions button:hover {
+    background-color: #218838;
+}
+#questions-preview .edit-actions button.delete {
+     background-color: #dc3545; /* Merah */
+}
+ #questions-preview .edit-actions button.delete:hover {
+     background-color: #c82333;
+}
+
+
+.hidden {
+    display: none;
+}
+
+.error {
+    color: #dc3545; /* Merah */
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    padding: 10px 15px;
+    border-radius: 5px;
+    margin-top: 20px;
+    text-align: center;
+}
