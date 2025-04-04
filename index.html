@@ -3,81 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pembuat Soal Otomatis</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Aplikasi Pembuat Soal</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>Pembuat Soal Otomatis Berbasis Modul</h1>
-        <p>Upload modul pelajaran Anda (misal: PDF, DOCX) dan biarkan AI membantu membuatkan soal.</p>
-
-        <form id="question-generator-form">
-            
-            <div class="form-group">
-                <label for="module-file">1. Upload Modul:</label>
-                <input type="file" id="module-file" name="module-file" accept=".pdf,.docx,.txt" required>
-                <small>Format yang didukung: PDF, DOCX, TXT</small>
-            </div>
-
-            <div class="form-group">
-                <label for="difficulty-level">2. Pilih Tingkat Kesulitan Soal:</label>
-                <select id="difficulty-level" name="difficulty-level" required>
-                    <option value="">-- Pilih Tingkat --</option>
-                    <option value="mudah">Mudah (C1-C2)</option>
-                    <option value="sedang">Sedang (C3-C4)</option>
-                    <option value="sulit">Sulit (C5-C6)</option>
-                    <option value="variatif">Variatif (Campuran)</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>3. Tentukan Range Halaman (Opsional):</label>
-                <div class="page-range">
-                    <label for="start-page">Dari Hal:</label>
-                    <input type="number" id="start-page" name="start-page" min="1" placeholder="Awal">
-                    <label for="end-page">Sampai Hal:</label>
-                    <input type="number" id="end-page" name="end-page" min="1" placeholder="Akhir">
-                </div>
-                <small>Kosongkan jika ingin memproses seluruh modul.</small>
-            </div>
-
-             <div class="form-group">
-                <label for="num-questions">4. Jumlah Soal yang Diinginkan:</label>
-                <input type="number" id="num-questions" name="num-questions" min="1" max="50" value="10" required>
-                 <small>Maksimal 50 soal per proses.</small>
-             </div>
-
-            <div class="form-group">
-                 <label for="question-type">5. Jenis Soal (Prioritas):</label>
-                 <select id="question-type" name="question-type">
-                    <option value="pilihan_ganda">Pilihan Ganda</option>
-                    <option value="esai">Esai Singkat</option>
-                    <option value="benar_salah">Benar/Salah</option>
-                    <option value="campuran">Campuran (Biarkan AI Memilih)</option>
-                 </select>
-            </div>
-
-            <button type="submit" id="generate-btn">Buat Soal</button>
-
-        </form>
-
-        <div id="loading-indicator" class="hidden">
-            <p>Memproses modul dan membuat soal... Mohon tunggu.</p>
-            <div class="spinner"></div>
+        <h1>Aplikasi Pembuat Soal</h1>
+        
+        <!-- Bagian Upload Modul -->
+        <div class="upload-section">
+            <label for="module-upload">Unggah Modul Pelajaran (PDF/Teks):</label>
+            <input type="file" id="module-upload" accept=".pdf,.txt">
         </div>
 
-        <div id="error-message" class="hidden error"></div>
+        <!-- Bagian Pengaturan -->
+        <div class="settings-section">
+            <label for="difficulty">Tingkat Kesulitan:</label>
+            <select id="difficulty">
+                <option value="mudah">Mudah</option>
+                <option value="sedang">Sedang</option>
+                <option value="sulit">Sulit</option>
+            </select>
 
-        <div id="results-section" class="hidden">
-            <h2>Hasil Soal (Preview)</h2>
-            <p>Berikut adalah soal yang berhasil dibuat. Anda bisa mengeditnya sebelum digunakan.</p>
-            <div id="questions-preview">
-                <!-- Soal akan ditampilkan di sini oleh JavaScript -->
-            </div>
-            <button id="export-btn" class="hidden">Export Soal (Contoh)</button>
-             <button id="save-changes-btn" class="hidden">Simpan Perubahan (Contoh)</button>
+            <label for="page-range">Range Halaman:</label>
+            <input type="number" id="page-start" placeholder="Dari" min="1">
+            <input type="number" id="page-end" placeholder="Sampai" min="1">
+
+            <button onclick="generateQuestions()">Buat Soal</button>
         </div>
 
+        <!-- Bagian Preview Soal -->
+        <div class="preview-section" id="preview">
+            <h2>Preview Soal</h2>
+            <div id="question-list">
+                <!-- Soal akan ditampilkan di sini -->
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>
