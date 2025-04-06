@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
         //        [.)] : Diikuti oleh titik atau kurung tutup
         //        \s* : Diikuti oleh 0 atau lebih spasi
         const prefixRegex = /^\s*[a-zA-Z0-9]+[.)]\s*/;
-        return text.replace(prefixRegex, ''); // Hapus prefix jika cocok
+        return text.replace(prefixRegex, '').trim(); // Hapus prefix jika cocok dan trim spasi sisa
     }
     // ========================================================
 
@@ -138,37 +138,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 optionsDiv.classList.add('question-options');
                 const optionsList = document.createElement('ul');
                 optionsList.classList.add('options-list');
+                optionsList.style.listStyleType = 'none'; // Nonaktifkan bullet/number default
+                optionsList.style.paddingLeft = '0'; // Reset padding kiri
                 const optionLetters = ['a', 'b', 'c', 'd', 'e', 'f'];
 
                 q.options.forEach((opt, optIndex) => {
                     const li = document.createElement('li');
+                    li.style.marginLeft = '20px'; // Beri indentasi manual
                     const letter = optionLetters[optIndex] || String.fromCharCode(97 + optIndex);
-                    // **PERBAIKAN: Gunakan cleanOptionText sebelum menampilkan teks opsi**
+                    // **PERBAIKAN: Bersihkan teks opsi sebelum ditampilkan**
                     const cleanedOptText = cleanOptionText(opt);
-                    li.innerHTML = `<span class="option-letter">${letter}.</span> <span class="option-text">${cleanedOptText}</span>`;
+                    li.innerHTML = `<span class="option-letter" style="margin-right: 5px;">${letter}.</span><span class="option-text">${cleanedOptText}</span>`;
                     optionsList.appendChild(li);
                 });
                 optionsDiv.appendChild(optionsList);
 
                 // Tampilkan Jawaban Benar di bawah opsi
                 if (q.correct_answer) {
-                    // Cari index jawaban benar berdasarkan TEKS OPSI YANG SUDAH DIBERSIHKAN
+                    // **PERBAIKAN: Bersihkan juga teks jawaban benar sebelum mencari index**
                     const cleanedCorrectAnswer = cleanOptionText(q.correct_answer);
+                    // **PERBAIKAN: Cari index berdasarkan TEKS OPSI YANG SUDAH DIBERSIHKAN**
                     const correctOptionIndex = q.options.findIndex(opt => cleanOptionText(opt) === cleanedCorrectAnswer);
 
                     if (correctOptionIndex !== -1) {
                         const correctAnswerLetter = optionLetters[correctOptionIndex] || String.fromCharCode(97 + correctOptionIndex);
                         const answerDisplay = document.createElement('p');
                         answerDisplay.classList.add('correct-answer-display');
+                        answerDisplay.style.marginLeft = '20px'; // Samakan indentasi
                         answerDisplay.innerHTML = `<i>Jawaban Benar: ${correctAnswerLetter}</i>`;
                         optionsDiv.appendChild(answerDisplay);
                     } else {
                          // Jika teks jawaban benar tidak cocok setelah dibersihkan
-                         console.warn(`Jawaban benar "${q.correct_answer}" tidak ditemukan di opsi soal ${index + 1}.`);
+                         console.warn(`Jawaban benar "${q.correct_answer}" (setelah dibersihkan jadi "${cleanedCorrectAnswer}") tidak ditemukan di opsi soal ${index + 1}.`);
                          const answerDisplay = document.createElement('p');
                          answerDisplay.classList.add('correct-answer-display', 'warning');
+                         answerDisplay.style.marginLeft = '20px'; // Samakan indentasi
                          // Tampilkan teks asli dari AI untuk debug jika tidak cocok
-                         answerDisplay.innerHTML = `<i>Jawaban Benar (Teks Asli AI): ${q.correct_answer}</i>`;
+                         answerDisplay.innerHTML = `<i>Jawaban Benar (Teks Asli: ${q.correct_answer}) - Tidak cocok dengan opsi</i>`;
                          optionsDiv.appendChild(answerDisplay);
                     }
                 }
@@ -193,9 +199,13 @@ document.addEventListener('DOMContentLoaded', () => {
             deleteButton.classList.add('delete');
             deleteButton.onclick = () => {
                  if (confirm('Yakin ingin menghapus soal ini?')) {
-                     questionItem.remove();
                      const qId = questionItem.getAttribute('data-question-id');
+                     // Hapus dari data array
                      displayedQuestionsData = displayedQuestionsData.filter((item, idx) => (item.id || `gen-${idx}`) !== qId);
+                     // Hapus elemen dari DOM
+                     questionItem.remove();
+                     // Perbarui nomor urut jika perlu (opsional, bisa dilakukan saat save/export)
+                     // displayResults(displayedQuestionsData); // Re-render semua atau update nomor secara manual
                  }
             };
             actionsDiv.appendChild(editButton);
@@ -209,15 +219,14 @@ document.addEventListener('DOMContentLoaded', () => {
      // --- Fungsi untuk Mengaktifkan/Menonaktifkan Mode Edit Soal ---
     function toggleEditMode(questionItem) {
         const questionId = questionItem.getAttribute('data-question-id');
-        const questionDataIndex = displayedQuestionsData.findIndex((q, idx) => (q.id || `gen-${idx}`) === questionId); // Dapatkan index
+        const questionDataIndex = displayedQuestionsData.findIndex((q, idx) => (q.id || `gen-${idx}`) === questionId);
 
-        if (questionDataIndex === -1) { // Cek jika index tidak ditemukan
+        if (questionDataIndex === -1) {
             console.error("Data soal tidak ditemukan untuk ID:", questionId);
             alert("Gagal memulai edit: data soal tidak ditemukan.");
             return;
         }
-        // Akses data menggunakan index agar bisa diupdate langsung di array
-        const questionData = displayedQuestionsData[questionDataIndex];
+        const questionData = displayedQuestionsData[questionDataIndex]; // Akses data untuk diupdate
 
         const textContainer = questionItem.querySelector('.question-text-container');
         const optionsDiv = questionItem.querySelector('.question-options');
@@ -225,11 +234,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const isEditing = questionItem.classList.contains('is-editing');
 
         if (isEditing) {
-            // --- KELUAR DARI MODE EDIT (SIMPAN PERUBAHAN) ---
+            // --- KELUAR DARI MODE EDIT (SIMPAN PERUBAHAN LOKAL) ---
             const questionTextArea = textContainer.querySelector('textarea.edit-textarea');
             const newQuestionText = questionTextArea ? questionTextArea.value : questionData.question_text;
 
-            const questionNumberStrong = textContainer.querySelector('strong');
+            const questionNumberStrong = textContainer.querySelector('strong'); // Simpan nomornya
             textContainer.innerHTML = `<p class="question-text">${questionNumberStrong ? questionNumberStrong.outerHTML : ''} ${newQuestionText}</p>`;
 
             // Update data pertanyaan di array utama
@@ -242,39 +251,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 const optionLetters = ['a', 'b', 'c', 'd', 'e', 'f'];
                 const newOptionsData = [];
 
-                optionsList.innerHTML = ''; // Kosongkan list
+                optionsList.innerHTML = ''; // Kosongkan list input
 
                 optionInputs.forEach((input, index) => {
-                     // Ambil teks dari input (sudah diedit pengguna)
-                     const editedOptionText = input.value;
-                     newOptionsData.push(editedOptionText); // Simpan teks baru
+                     const editedOptionText = input.value; // Ambil teks dari input (sudah bersih)
+                     newOptionsData.push(editedOptionText); // Simpan teks baru (bersih) ke data
 
-                     // Buat ulang tampilan list item (li)
+                     // Buat ulang tampilan list item (li) dengan teks bersih
                      const li = document.createElement('li');
+                     li.style.marginLeft = '20px'; // Beri indentasi manual
                      const letter = optionLetters[index] || String.fromCharCode(97 + index);
-                     // **PENTING**: Tetap gunakan teks yang BARU disimpan (editedOptionText) untuk tampilan
-                     li.innerHTML = `<span class="option-letter">${letter}.</span> <span class="option-text">${editedOptionText}</span>`;
+                     li.innerHTML = `<span class="option-letter" style="margin-right: 5px;">${letter}.</span><span class="option-text">${editedOptionText}</span>`; // Tampilkan teks bersih
                      optionsList.appendChild(li);
                 });
 
                 // Update data opsi di array utama
                 displayedQuestionsData[questionDataIndex].options = newOptionsData;
 
-                // Tampilkan kembali info jawaban benar
+                // Tampilkan kembali info jawaban benar (sesuaikan dengan data baru)
                  const answerDisplay = optionsDiv.querySelector('.correct-answer-display');
                  if (answerDisplay) {
-                     // Update teks jawaban benar jika diperlukan (misal jika isinya diedit juga)
-                     // Untuk sekarang, kita tampilkan lagi berdasarkan data yang mungkin sudah berubah
-                     const cleanedCorrectAnswer = cleanOptionText(questionData.correct_answer); // Gunakan data asli/yg mungkin terupdate
-                     const correctOptionIndex = newOptionsData.findIndex(opt => opt === cleanedCorrectAnswer); // Cari di opsi BARU
+                     // **PERBAIKAN: Gunakan teks jawaban benar yg bersih & cari di opsi baru yg bersih**
+                     const cleanedCorrectAnswer = cleanOptionText(questionData.correct_answer); // Pastikan jawaban benar juga bersih
+                     const correctOptionIndex = newOptionsData.findIndex(opt => opt === cleanedCorrectAnswer); // Cari di opsi BARU (yg sudah bersih)
 
                      if (correctOptionIndex !== -1) {
                         const correctAnswerLetter = optionLetters[correctOptionIndex] || String.fromCharCode(97 + correctOptionIndex);
                         answerDisplay.innerHTML = `<i>Jawaban Benar: ${correctAnswerLetter}</i>`;
                      } else {
-                        answerDisplay.innerHTML = `<i>Jawaban Benar (Teks Asli AI): ${questionData.correct_answer}</i>`; // Fallback
+                        // Jika tetap tidak ketemu setelah diedit & dibersihkan
+                        answerDisplay.innerHTML = `<i>Jawaban Benar (Teks Asli: ${questionData.correct_answer}) - Tidak cocok dengan opsi</i>`;
                      }
                      answerDisplay.style.display = ''; // Tampilkan lagi
+                     answerDisplay.style.marginLeft = '20px'; // Atur indentasi lagi
                  }
             }
 
@@ -284,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } else {
             // --- MASUK KE MODE EDIT ---
-            const questionNumberStrong = textContainer.querySelector('.question-text strong');
+            const questionNumberStrong = textContainer.querySelector('.question-text strong'); // Ambil nomor
             const currentQuestionText = questionData.question_text; // Ambil teks dari data
 
             textContainer.innerHTML = `
@@ -295,24 +304,27 @@ document.addEventListener('DOMContentLoaded', () => {
             // Jika Pilihan Ganda, buat opsi jadi input
             if (questionData.question_type === 'pilihan_ganda' && optionsDiv) {
                 const optionsList = optionsDiv.querySelector('ul.options-list');
-                optionsList.innerHTML = ''; // Kosongkan list
+                optionsList.innerHTML = ''; // Kosongkan list tampilan
 
                 // Ambil data opsi dari array questionData
                 (questionData.options || []).forEach((optText, index) => {
                     const letter = ['a', 'b', 'c', 'd', 'e', 'f'][index] || String.fromCharCode(97 + index);
+
+                    const inputLi = document.createElement('li');
+                    inputLi.style.listStyle = 'none';
+                    inputLi.style.marginLeft = '20px'; // Indentasi
+                    inputLi.style.marginBottom = '5px'; // Jarak antar input
 
                     const input = document.createElement('input');
                     input.type = 'text';
                     // **PERBAIKAN: Gunakan cleanOptionText saat mengisi value input**
                     input.value = cleanOptionText(optText); // Isi input dengan teks bersih
                     input.classList.add('edit-option-input');
-                    input.style.width = 'calc(95% - 25px)';
-                    input.style.marginBottom = '5px';
+                    input.style.width = 'calc(95% - 30px)'; // Sesuaikan lebar
                     input.style.padding = '5px';
+                    input.style.marginLeft = '5px'; // Jarak dari abjad
 
-                    const inputLi = document.createElement('li');
-                    inputLi.style.listStyle = 'none';
-                    inputLi.innerHTML = `<span class="option-letter" style="margin-right: 5px;">${letter}.</span>`;
+                    inputLi.innerHTML = `<span class="option-letter">${letter}.</span>`;
                     inputLi.appendChild(input);
                     optionsList.appendChild(inputLi);
                 });
@@ -350,33 +362,39 @@ document.addEventListener('DOMContentLoaded', () => {
         const optionLetters = ['a', 'b', 'c', 'd', 'e', 'f'];
 
         displayedQuestionsData.forEach((question, index) => {
-            txtContent += `${index + 1}. ${question.question_text}\n`; // Ambil dari data yang mungkin terupdate
+            // Ambil teks pertanyaan dari data (mungkin sudah diedit)
+            txtContent += `${index + 1}. ${question.question_text}\n`;
             if (question.question_type === 'pilihan_ganda' && question.options && question.options.length > 0) {
                 question.options.forEach((opt, optIndex) => {
                     const letter = optionLetters[optIndex] || String.fromCharCode(97 + optIndex);
                     // **PERBAIKAN: Pastikan ekspor juga pakai teks bersih**
-                    txtContent += `   ${letter}. ${cleanOptionText(opt)}\n`;
+                    // Karena data di displayedQuestionsData sudah bersih setelah edit,
+                    // kita bisa langsung pakai 'opt'. Jika tidak yakin, gunakan cleanOptionText(opt)
+                    txtContent += `   ${letter}. ${opt}\n`; // Asumsi 'opt' di data sudah bersih
                 });
+                 // **PERBAIKAN: Cari jawaban benar pakai teks bersih**
                  const cleanedCorrectAnswer = cleanOptionText(question.correct_answer);
-                 const correctOptionIndex = question.options.findIndex(opt => cleanOptionText(opt) === cleanedCorrectAnswer);
-                 let correctAnswerInfo = "Jawaban Benar: (Tidak ditentukan)";
+                 const correctOptionIndex = question.options.findIndex(opt => opt === cleanedCorrectAnswer); // Bandingkan dengan opsi bersih di data
+
+                 let correctAnswerInfo = "Jawaban Benar: (Tidak ditentukan atau tidak cocok)";
                  if (correctOptionIndex !== -1) {
                      correctAnswerInfo = `Jawaban Benar: ${optionLetters[correctOptionIndex] || String.fromCharCode(97 + correctOptionIndex)}`;
                  } else if (question.correct_answer){
-                     correctAnswerInfo = `Jawaban Benar (Teks Asli AI): ${question.correct_answer}`;
+                     // Fallback jika tidak cocok, tampilkan teks asli
+                     correctAnswerInfo = `Jawaban Benar (Teks Asli): ${question.correct_answer}`;
                  }
                 txtContent += `   ${correctAnswerInfo}\n`;
             } else if (question.question_type === 'benar_salah' && question.correct_answer) {
                 txtContent += `   Jawaban: ${question.correct_answer}\n`;
             }
-            txtContent += "\n\n";
+            txtContent += "\n\n"; // Tambah baris kosong antar soal
         });
 
         const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        const timestamp = new Date().toISOString().slice(0, 10);
+        const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
         link.download = `kawanguru_soal_${timestamp}.txt`;
         document.body.appendChild(link);
         link.click();
@@ -386,7 +404,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     saveChangesBtn.addEventListener('click', () => {
-        alert('Fungsi Simpan Perubahan (ke server/database) belum diimplementasikan.');
+        // Placeholder: Di sini Anda bisa mengirim 'displayedQuestionsData' ke server
+        alert('Fungsi Simpan Perubahan (ke server) belum diimplementasikan.\nData soal yang tersimpan di memori (termasuk editan):\n' + JSON.stringify(displayedQuestionsData, null, 2));
+        console.log("Data siap dikirim:", displayedQuestionsData);
     });
 
 }); // Akhir dari DOMContentLoaded
