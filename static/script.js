@@ -12,29 +12,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Listener Utama untuk Form Submission ---
     form.addEventListener('submit', async (event) => {
-        event.preventDefault(); // Mencegah reload halaman standar
+        event.preventDefault(); // Mencegah reload halaman
 
-        // --- Validasi Sederhana di Frontend ---
+        // --- Validasi Frontend ---
         if (!fileInput.files || fileInput.files.length === 0) {
             showError("Silakan pilih file modul terlebih dahulu.");
             return;
         }
         const selectedFile = fileInput.files[0];
-        // Anda bisa menambahkan validasi ukuran file atau tipe lebih lanjut di sini jika perlu
 
         // --- Reset UI sebelum request ---
         hideError();
         resultsSection.classList.add('hidden');
-        questionsPreview.innerHTML = ''; // Kosongkan preview lama
-        exportBtn.classList.add('hidden'); // Sembunyikan tombol aksi
+        questionsPreview.innerHTML = '';
+        exportBtn.classList.add('hidden');
         saveChangesBtn.classList.add('hidden');
-        loadingIndicator.classList.remove('hidden'); // Tampilkan loading
+        loadingIndicator.classList.remove('hidden');
         generateBtn.disabled = true;
-        generateBtn.textContent = 'Sedang Memproses...';
+        generateBtn.textContent = 'Membuat Soal dengan AI...'; // Update teks tombol
 
         // --- Persiapan Data untuk Dikirim ---
         const formData = new FormData();
-        // PENTING: Kunci 'moduleFile' harus SAMA dengan yang diharapkan backend Flask (request.files['moduleFile'])
         formData.append('moduleFile', selectedFile);
         formData.append('difficulty', document.getElementById('difficulty-level').value);
         formData.append('startPage', document.getElementById('start-page').value);
@@ -44,107 +42,130 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- Kirim Data ke Backend menggunakan Fetch ---
         try {
-            // Log data yang dikirim (kecuali isi file) untuk debugging
-            console.log("Mengirim FormData ke /generate-soal:");
-            for (let pair of formData.entries()) {
-                if (pair[1] instanceof File) {
-                    console.log(`${pair[0]}: ${pair[1].name} (type: ${pair[1].type}, size: ${pair[1].size} bytes)`);
-                } else {
-                    console.log(`${pair[0]}: ${pair[1]}`);
-                }
-            }
+            console.log("Mengirim FormData ke /generate-soal..."); // Log pengiriman
 
-            // Melakukan request POST ke endpoint Flask
             const response = await fetch('/generate-soal', {
                 method: 'POST',
-                body: formData, // Kirim data form termasuk file
-                // Browser akan otomatis mengatur header 'Content-Type: multipart/form-data'
+                body: formData,
             });
 
             // Cek status response dari server
             if (!response.ok) {
                 let errorMsg = `Error: ${response.status} ${response.statusText}`;
                 try {
-                    // Coba dapatkan pesan error spesifik dari body JSON response (jika ada)
                     const errorData = await response.json();
-                    errorMsg = errorData.error || JSON.stringify(errorData); // Ambil 'error' jika ada
+                    errorMsg = errorData.error || JSON.stringify(errorData);
                 } catch (e) {
-                    // Jika body response bukan JSON atau kosong
                     console.warn("Tidak bisa parse error JSON dari response:", await response.text().catch(() => ''));
                 }
-                // Lempar error untuk ditangkap oleh blok catch
-                throw new Error(errorMsg);
+                throw new Error(errorMsg); // Lempar error untuk ditangkap catch
             }
 
-            // Jika response OK (status 2xx), baca hasilnya sebagai JSON
+            // Jika response OK, baca hasilnya sebagai JSON
             const result = await response.json();
             console.log("Respons sukses dari backend:", result);
 
-            // --- Proses Hasil dari Backend ---
-            // SAAT INI: Backend hanya mengembalikan pesan sukses upload.
-            // NANTI: Backend akan mengembalikan daftar soal (`result.questions`).
+            // ===========================================================
+            // === PROSES HASIL DARI BACKEND (YANG KINI BERISI SOAL) ===
+            // ===========================================================
+            if (result.error) {
+                // Tangani jika backend secara eksplisit mengirim pesan error
+                showError(`Gagal di server: ${result.error}`);
+                resultsSection.classList.add('hidden');
+                questionsPreview.innerHTML = ''; // Pastikan area preview kosong
+            } else if (result.questions && Array.isArray(result.questions)) {
+                // ---- BAGIAN UTAMA: SOAL DITERIMA DARI BACKEND ----
+                hideError(); // Sembunyikan pesan error lama jika ada
+                alert(result.message || "Soal berhasil dibuat!"); // Tampilkan pesan sukses dari backend
 
-            // Tampilkan pesan sukses sementara (karena belum ada soal)
-            alert(`Proses di backend selesai: ${result.message}`);
-            // Jika backend NANTI mengembalikan soal, uncomment baris di bawah dan hapus alert:
-            // if (result.questions && result.questions.length > 0) {
-            //     displayResults(result.questions);
-            //     resultsSection.classList.remove('hidden');
-            //     exportBtn.classList.remove('hidden');
-            //     saveChangesBtn.classList.remove('hidden');
-            // } else {
-            //     showError("Tidak ada soal yang berhasil dibuat.");
-            // }
+                if (result.questions.length > 0) {
+                    // Panggil fungsi untuk menampilkan soal ke HTML
+                    displayResults(result.questions);
+                    // Tampilkan section hasil dan tombol-tombol aksi
+                    resultsSection.classList.remove('hidden');
+                    exportBtn.classList.remove('hidden');
+                    saveChangesBtn.classList.remove('hidden');
+                } else {
+                    // Kasus: Proses AI berhasil tapi tidak menghasilkan soal
+                    showError("Proses AI selesai, namun tidak ada soal yang dihasilkan untuk kriteria ini.");
+                    resultsSection.classList.add('hidden');
+                    questionsPreview.innerHTML = '';
+                }
+                // ---------------------------------------------------
+            } else {
+                 // Respons sukses tapi format tidak terduga (tidak ada 'questions')
+                 console.error("Format respons tidak terduga dari backend:", result);
+                 showError("Gagal memproses respons dari server (format tidak dikenali).");
+                 resultsSection.classList.add('hidden');
+                 questionsPreview.innerHTML = '';
+            }
+            // ===========================================================
 
         } catch (error) {
-            // Tangani error (network error, error dari server, dll.)
+            // Tangani error fetch atau error yang dilempar dari blok .ok
             console.error("Terjadi kesalahan:", error);
             showError(`Gagal: ${error.message}`);
-            resultsSection.classList.add('hidden'); // Pastikan hasil disembunyikan jika error
+            resultsSection.classList.add('hidden'); // Pastikan hasil disembunyikan
 
         } finally {
             // --- Reset UI setelah request selesai (sukses atau gagal) ---
             loadingIndicator.classList.add('hidden'); // Sembunyikan loading
             generateBtn.disabled = false;
-            generateBtn.textContent = 'Buat Soal';
+            generateBtn.textContent = 'Buat Soal'; // Kembalikan teks tombol
         }
     });
 
     // --- Fungsi untuk Menampilkan Hasil Soal di Preview ---
-    // (Fungsi ini belum akan menampilkan apa-apa sampai backend mengirimkan data soal)
+    // (Tidak perlu diubah, sudah siap menerima array soal)
     function displayResults(questions) {
         questionsPreview.innerHTML = ''; // Kosongkan dulu
 
         if (!questions || questions.length === 0) {
-            questionsPreview.innerHTML = '<p>Tidak ada soal yang dapat dihasilkan.</p>';
+            questionsPreview.innerHTML = '<p>Tidak ada soal untuk ditampilkan.</p>';
             return;
         }
 
         questions.forEach((q, index) => {
             const questionItem = document.createElement('div');
             questionItem.classList.add('question-item');
-            questionItem.setAttribute('data-question-id', q.id || index); // Gunakan ID dari backend jika ada
+            // Gunakan ID unik jika backend menyediakannya, jika tidak gunakan index
+            questionItem.setAttribute('data-question-id', q.id || `gen-${index}`);
 
             // Kontainer Teks Soal
             const textContainer = document.createElement('div');
             textContainer.classList.add('question-text-container');
-            textContainer.innerHTML = `<p class="question-text"><strong>${index + 1}.</strong> ${q.text}</p>`;
+            // Tampilkan jenis soal jika ada, untuk kejelasan
+            const typeLabel = q.question_type ? ` <span class="q-type">(${q.question_type.replace('_', ' ')})</span>` : '';
+            textContainer.innerHTML = `<p class="question-text"><strong>${index + 1}.</strong> ${q.question_text || 'Teks soal tidak ditemukan.'}${typeLabel}</p>`;
             questionItem.appendChild(textContainer);
 
-            // Opsi Jawaban (jika ada, misal Pilihan Ganda)
-            if (q.options && Array.isArray(q.options) && q.options.length > 0) {
+            // Opsi Jawaban (jika Pilihan Ganda)
+            if (q.question_type === 'pilihan_ganda' && q.options && Array.isArray(q.options) && q.options.length > 0) {
                 const optionsDiv = document.createElement('div');
                 optionsDiv.classList.add('question-options');
                 const optionsList = document.createElement('ul');
                 q.options.forEach(opt => {
                     const li = document.createElement('li');
-                    li.textContent = opt;
+                    // Tandai jawaban benar jika ada (hanya untuk referensi, bisa di-styling CSS)
+                    if (q.correct_answer && opt === q.correct_answer) {
+                        // li.classList.add('correct-option'); // Tambah class jika mau di-styling
+                        li.innerHTML = `${opt} <i>(Jawaban Benar)</i>`; // Atau tambahkan teks
+                    } else {
+                       li.textContent = opt;
+                    }
                     optionsList.appendChild(li);
                 });
                 optionsDiv.appendChild(optionsList);
                 questionItem.appendChild(optionsDiv);
-                // Di sini bisa ditambahkan logika edit opsi jika diperlukan
             }
+            // Anda bisa menambahkan tampilan untuk jawaban benar tipe 'benar_salah' di sini jika mau
+            else if (q.question_type === 'benar_salah' && q.correct_answer) {
+                 const answerDiv = document.createElement('div');
+                 answerDiv.classList.add('correct-answer-display');
+                 answerDiv.innerHTML = `<p><small>Jawaban: ${q.correct_answer}</small></p>`;
+                 questionItem.appendChild(answerDiv);
+            }
+
 
             // Tombol Aksi (Edit, Hapus)
             const actionsDiv = document.createElement('div');
@@ -152,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const editButton = document.createElement('button');
             editButton.textContent = 'Edit';
-            editButton.onclick = () => toggleEditMode(questionItem); // Panggil fungsi edit
+            editButton.onclick = () => toggleEditMode(questionItem);
 
             const deleteButton = document.createElement('button');
             deleteButton.textContent = 'Hapus';
@@ -160,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
             deleteButton.onclick = () => {
                  if (confirm('Yakin ingin menghapus soal ini?')) {
                      questionItem.remove();
-                     // TODO: Idealnya, data soal di JavaScript juga diupdate
+                     // TODO: Update data JS jika perlu (misal sebelum save/export)
                  }
             };
 
@@ -173,32 +194,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
      // --- Fungsi untuk Mengaktifkan/Menonaktifkan Mode Edit Soal ---
+     // (Tidak perlu diubah, tapi pastikan class 'edit-textarea' ada di CSS jika belum)
     function toggleEditMode(questionItem) {
         const textContainer = questionItem.querySelector('.question-text-container');
         const editButton = questionItem.querySelector('.edit-actions button:not(.delete)');
-        const isEditing = textContainer.querySelector('textarea');
+        const isEditing = textContainer.querySelector('textarea.edit-textarea'); // Lebih spesifik
 
         if (isEditing) {
             // --- Simpan perubahan dari mode Edit ---
             const newText = isEditing.value;
-            const questionNumber = textContainer.querySelector('strong').innerHTML; // Ambil nomor lagi
-            textContainer.innerHTML = `<p class="question-text"><strong>${questionNumber}</strong> ${newText}</p>`;
+            const questionNumberStrong = textContainer.querySelector('strong');
+            const typeSpan = textContainer.querySelector('span.q-type'); // Simpan tipe jika ada
+            
+            // Bangun ulang HTML teks soal
+            textContainer.innerHTML = `<p class="question-text">${questionNumberStrong ? questionNumberStrong.outerHTML : ''} ${newText}${typeSpan ? typeSpan.outerHTML : ''}</p>`;
+            
             editButton.textContent = 'Edit';
-            // TODO: Simpan perubahan ini ke array/object data soal di JavaScript
-            // const questionId = questionItem.getAttribute('data-question-id');
-            // updateQuestionData(questionId, newText, ...);
+            // TODO: Simpan perubahan ini ke struktur data JS jika diperlukan (misal, array soal di memori)
         } else {
             // --- Masuk ke mode Edit ---
-            const questionNumber = textContainer.querySelector('.question-text strong').innerHTML;
-            // Ambil teks saja, tanpa nomor
-            const currentContent = textContainer.querySelector('.question-text').innerText.replace(questionNumber, '').trim();
-            // Ganti <p> dengan <strong> dan <textarea>
-            textContainer.innerHTML = `<strong>${questionNumber}</strong> <textarea class="edit-textarea">${currentContent}</textarea>`;
-            // Fokuskan ke textarea
-            const textarea = textContainer.querySelector('textarea');
+            const questionNumberStrong = textContainer.querySelector('.question-text strong');
+            const typeSpan = textContainer.querySelector('span.q-type');
+            const currentFullText = textContainer.querySelector('.question-text').innerHTML;
+            
+            // Ekstrak teks asli saja (tanpa nomor dan tipe)
+            let currentContent = currentFullText;
+            if (questionNumberStrong) currentContent = currentContent.replace(questionNumberStrong.outerHTML, '');
+            if (typeSpan) currentContent = currentContent.replace(typeSpan.outerHTML, '');
+            currentContent = currentContent.trim(); // Hapus spasi ekstra
+
+            // Ganti <p> dengan <strong> (jika ada) dan <textarea>
+            textContainer.innerHTML = `
+                ${questionNumberStrong ? questionNumberStrong.outerHTML : ''}
+                <textarea class="edit-textarea">${currentContent}</textarea>
+                ${typeSpan ? typeSpan.outerHTML : ''}
+            `;
+            
+            const textarea = textContainer.querySelector('textarea.edit-textarea');
+            textarea.style.width = '98%'; // Pastikan lebar sesuai
+            textarea.style.minHeight = '60px'; // Atur tinggi minimal
             textarea.focus();
-            // Set kursor ke akhir teks
-            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length); // Kursor ke akhir
             editButton.textContent = 'Simpan';
         }
     }
@@ -217,12 +253,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listener untuk Tombol Aksi Tambahan (Placeholder) ---
     exportBtn.addEventListener('click', () => {
         alert('Fungsi Export Soal belum diimplementasikan.');
-        // Logika untuk mengambil data soal dari preview dan mengekspornya
+        // Logika untuk mengambil data soal dari preview (termasuk editan) dan mengekspornya
     });
 
     saveChangesBtn.addEventListener('click', () => {
-        alert('Fungsi Simpan Perubahan (ke server) belum diimplementasikan.');
-        // Logika untuk mengambil data soal yang sudah diedit dan mengirim ke backend
+        alert('Fungsi Simpan Perubahan (ke server/database) belum diimplementasikan.');
+        // Logika untuk mengambil data soal yg diedit dan mengirim ke backend
     });
 
 }); // Akhir dari DOMContentLoaded
