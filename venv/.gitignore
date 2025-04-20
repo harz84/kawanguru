@@ -4,4 +4,20 @@
 .env
 
 # Abaikan folder virtual environment
-/venv/ 
+/venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Folder Uploads (PENTING untuk PaaS)
+uploads/
+
+# OS generated files #
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
