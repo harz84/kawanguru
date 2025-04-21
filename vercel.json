@@ -1,0 +1,19 @@
+{
+    "version": 2,
+    "builds": [
+      {
+        "src": "app.py",    // File utama Flask Anda
+        "use": "@vercel/python" // Menggunakan runtime Python Vercel
+      }
+    ],
+    "routes": [
+      {
+        "src": "/static/(.*)", // Arahkan request /static ke folder static
+        "dest": "/static/$1"
+      },
+      {
+        "src": "/(.*)",      // Semua request lain (termasuk /)
+        "dest": "app.py"    // Arahkan ke aplikasi Flask di app.py
+      }
+    ]
+  }
