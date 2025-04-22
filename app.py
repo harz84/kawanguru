@@ -37,6 +37,8 @@ if genai_configured:
         model = None # Tetap None jika gagal inisialisasi
 
 # Impor library lain yang diperlukan
+# ... impor lain ...
+from whitenoise import WhiteNoise 
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from werkzeug.utils import secure_filename
 import PyPDF2
@@ -44,7 +46,18 @@ import docx
 
 # Inisialisasi Aplikasi Flask
 app = Flask(__name__)
+app = Flask(__name__)
 
+# --- TAMBAHKAN INI ---
+# Konfigurasi WhiteNoise untuk menyajikan file dari folder 'static'
+# 'root' adalah path relatif dari app.py ke folder static
+# 'prefix' adalah URL path tempat file statis akan disajikan (cocokkan dengan HTML Anda)
+app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/', prefix='/static/')
+# Tambahkan dukungan kompresi jika brotli diinstal
+app.wsgi_app.add_files('static/', prefix='/static/') 
+# ---------------------
+
+# ... sisa konfigurasi (UPLOAD_FOLDER, dll.) ...
 # Konfigurasi Folder Upload
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
