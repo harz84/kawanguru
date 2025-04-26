@@ -76,120 +76,80 @@ print("WhiteNoise dikonfigurasi untuk melayani /static/")
 # === FUNGSI HELPER ===
 
 # Fungsi untuk mengekstrak teks dari objek file-like (stream)
-def extract_text_from_file(file_object, filename):
+def extract_text_from_file(file_object, filename, start_page=None, end_page=None):
     """
-    Mengekstrak teks dari objek file-like (stream) berdasarkan nama file.
-    Mendukung PDF, DOCX, TXT.
-
-    Args:
-        file_object: Objek file-like (misal werkzeug.datastructures.FileStorage)
-                     yang memiliki atribut 'stream' (binary stream).
-        filename (str): Nama asli file (untuk menentukan tipe file).
-
-    Returns:
-        str: Teks yang diekstrak, atau pesan error jika gagal.
+    Mengekstrak teks dari objek file-like (stream) berdasarkan nama file
+    dan range halaman (hanya untuk PDF).
     """
     text = ""
     print(f"Memulai ekstraksi teks dari stream file: {filename}")
+    print(f"  Requested page range: Start={start_page}, End={end_page}")  # Log range halaman
 
-    # Gunakan stream biner dari objek file FileStorage
     file_stream = file_object.stream
 
     try:
-        # --- Penanganan PDF ---
         if filename.lower().endswith('.pdf'):
             print("  -> PDF terdeteksi (membaca dari stream).")
-            # PyPDF2.PdfReader dapat membaca langsung dari binary stream
             reader = PyPDF2.PdfReader(file_stream)
-            num_pages = len(reader.pages)
-            print(f"  -> PDF memiliki {num_pages} halaman.")
+            num_pages_total = len(reader.pages)
+            print(f"  -> PDF memiliki total {num_pages_total} halaman.")
+
             if reader.is_encrypted:
-                 print(f"  Peringatan: PDF {filename} terenkripsi. Mungkin gagal diekstrak.")
-                 # Bisa return error spesifik di sini jika mau:
-                 # return "[Error: PDF terenkripsi, tidak bisa diekstrak]"
+                print(f"  Peringatan: PDF {filename} terenkripsi. Mungkin gagal diekstrak.")
 
-            # TODO: Implementasi logika range halaman di sini jika start_page/end_page aktif
-            # Anda akan membutuhkan parameter start_page dan end_page di fungsi ini
-            # dan menyesuaikan loop range(num_pages) berdasarkan input tersebut.
+            start_idx = 0
+            end_idx = num_pages_total
 
-            for page_num in range(num_pages): # Memproses semua halaman untuk saat ini
+            if start_page and start_page.isdigit():
+                start_idx = max(0, int(start_page) - 1)
+            if end_page and end_page.isdigit():
+                end_idx = min(num_pages_total, int(end_page))
+
+            print(f"  Processing pages (0-indexed range): {start_idx} to {end_idx}")
+
+            for page_num_idx in range(start_idx, end_idx):
                 try:
-                    page = reader.pages[page_num]
+                    page = reader.pages[page_num_idx]
                     page_text = page.extract_text()
                     if page_text:
                         text += page_text + "\n"
-                    # else:
-                    #    print(f"  Info: Halaman {page_num + 1} tidak ada teks.")
                 except Exception as page_error:
-                     print(f"  Error saat memproses halaman {page_num + 1} PDF: {page_error}")
-                     text += f"\n[Error halaman {page_num + 1}]\n" # Tambahkan placeholder error di teks hasil
+                    print(f"  Error saat memproses halaman {page_num_idx + 1} PDF: {page_error}")
+                    text += f"\n[Error halaman {page_num_idx + 1}]\n"
 
             if not text.strip():
-                 print(f"  Peringatan: Tidak ada teks diekstrak dari PDF {filename}. Mungkin hanya gambar, terenkripsi, atau kosong.")
+                print(f"  Peringatan: Tidak ada teks diekstrak dari PDF {filename} pada range halaman {start_idx + 1}-{end_idx}.")
 
-        # --- Penanganan DOCX ---
         elif filename.lower().endswith('.docx'):
-            print("  -> DOCX terdeteksi (membaca dari stream).")
-            # python-docx.Document dapat membaca langsung dari binary stream
+            print("  -> DOCX terdeteksi (membaca dari stream). Range halaman diabaikan untuk DOCX.")
             doc = docx.Document(file_stream)
             full_text = [para.text for para in doc.paragraphs if para.text]
             text = '\n'.join(full_text)
 
-        # --- Penanganan TXT ---
         elif filename.lower().endswith('.txt'):
-            print("  -> TXT terdeteksi (membaca dari stream).")
+            print("  -> TXT terdeteksi (membaca dari stream). Range halaman diabaikan untuk TXT.")
             encodings_to_try = ['utf-8', 'latin-1', 'windows-1252']
-            read_success = False
-            text = ""
-            # Penting: TXT stream adalah biner, perlu di-decode.
-            # Reset stream position sebelum mencoba membaca dengan encoding berbeda
-            file_stream.seek(0) # Kembali ke awal stream biner
             for enc in encodings_to_try:
                 try:
-                    # Gunakan io.TextIOWrapper untuk membaca stream biner sebagai teks
-                    # errors='ignore' akan mengabaikan karakter yang tidak valid pada encoding yang dicoba
                     stream_wrapper = io.TextIOWrapper(file_stream, encoding=enc, errors='ignore')
                     text = stream_wrapper.read()
                     print(f"  Berhasil membaca TXT dengan encoding: {enc}")
-                    read_success = True
-                    break # Keluar dari loop jika berhasil
-                except Exception as e: # Tangkap exception lain seperti ValueError dari TextIOWrapper
-                     print(f"  Gagal membaca TXT dengan encoding {enc} atau error lain: {e}")
-                     # Reset stream position untuk percobaan berikutnya atau re-raise
-                     file_stream.seek(0)
-                     continue # Lanjut ke encoding berikutnya
-            if not read_success:
-                 raise ValueError("Gagal membaca file TXT stream dengan encoding yang dicoba.")
+                    break
+                except Exception as e:
+                    print(f"  Gagal membaca TXT dengan encoding {enc}: {e}")
+                    file_stream.seek(0)
 
-
-        # --- Tipe File Tidak Didukung ---
         else:
             raise ValueError(f"Tipe file tidak didukung: '{os.path.splitext(filename)[1]}'. Didukung: .pdf, .docx, .txt")
 
         print(f"Ekstraksi teks dari stream {filename} selesai.")
-        # Penting: Reset stream position ke awal sebelum keluar fungsi,
-        # jika stream ini mungkin dibaca lagi nanti. Meskipun di sini tidak, ini praktik baik.
-        try: file_stream.seek(0)
-        except Exception: pass # Abaikan jika seek tidak didukung/gagal pada stream
+        file_stream.seek(0)
+        return text.strip()
 
-        return text.strip() # Kembalikan teks yang sudah dibersihkan dari spasi di awal/akhir
-
-    # --- Penanganan Error Khusus Ekstraksi ---
-    except PyPDF2.errors.PdfReadError as e:
-         print(f"Error membaca struktur PDF dari stream {filename}: {e}")
-         # Reset stream position sebelum return error
-         try: file_stream.seek(0)
-         except Exception: pass
-         return f"[Error: Gagal membaca struktur PDF dari stream - {e}]"
     except Exception as e:
-        # Tangkap error lain selama ekstraksi teks (misal docx error, io error pada stream)
         print(f"Error tidak terduga saat ekstraksi teks dari stream: {e}")
         traceback.print_exc()
-        # Reset stream position sebelum re-raise
-        try: file_stream.seek(0)
-        except Exception: pass
-        # Lempar ulang error umum dengan pesan yang lebih informatif
-        # Ini akan ditangkap oleh except IOError di route /generate-soal
+        file_stream.seek(0)
         raise IOError(f"Gagal mengekstrak teks dari file stream: {e}")
 
 
@@ -377,136 +337,57 @@ def serve_index():
 # Route utama untuk generate soal
 @app.route('/generate-soal', methods=['POST'])
 def generate_questions_api():
-    """Endpoint utama untuk menerima file, memproses, dan menghasilkan soal."""
     print("\n--- Menerima Request Baru di /generate-soal ---")
 
-    # 1. Validasi File Upload dari request.files
-    # request.files adalah dictionary dari objek FileStorage
     if 'moduleFile' not in request.files:
         print("Error: Bagian file 'moduleFile' tidak ditemukan dalam request.files.")
         return jsonify({"error": "Bagian file ('moduleFile') tidak ditemukan dalam request."}), 400
 
-    file_storage_object = request.files['moduleFile'] # Ini adalah objek FileStorage dari Werkzeug
-
-    if not file_storage_object or file_storage_object.filename == '':
-        print("Error: Objek file kosong atau nama file kosong.")
-        return jsonify({"error": "Tidak ada file yang dipilih."}), 400
-
-    # Ambil nama file dari objek FileStorage
+    file_storage_object = request.files['moduleFile']
     original_filename = file_storage_object.filename
-    # Jika perlu sanitasi nama file (untuk alasan keamanan atau konsistensi log)
-    # sanitized_filename = secure_filename(original_filename)
-
     extracted_text = ""
-    generated_questions = [] # Inisialisasi list soal kosong
-    error_from_processing = None # Untuk menyimpan pesan error dari helper functions
 
     try:
-        # *** LANGSUNG EKSTRAKSI TEKS DARI OBJEK FILE (STREAM) ***
-        # TIDAK PERLU MENYIMPAN FILE KE DISK SAMA SEKALI DI VERCEL.
-        print(f"Mengekstrak teks langsung dari stream objek FileStorage: {original_filename}")
-        # Panggil fungsi ekstraksi, passing objek FileStorage dan nama file
-        # Fungsi ini akan melempar IOError atau ValueError jika gagal total,
-        # atau mengembalikan string error format "[Error: ...]" jika gagal parsial (misal PDF terenkripsi).
-        extracted_text = extract_text_from_file(file_storage_object, original_filename)
+        start_page_form = request.form.get('startPage')
+        end_page_form = request.form.get('endPage')
 
-        # Cek hasil ekstraksi teks. Jika ada string error atau teks kosong:
+        print(f"Memanggil extract_text_from_file dengan range: {start_page_form}-{end_page_form}")
+        extracted_text = extract_text_from_file(file_storage_object, original_filename, start_page=start_page_form, end_page=end_page_form)
+
         if not extracted_text or extracted_text.startswith("[Error:"):
-             error_msg = f"Tidak dapat membuat soal karena tidak ada teks valid diekstrak dari file '{original_filename}'. "
-             if extracted_text.startswith("[Error:"):
-                 # Jika fungsi extract_text_from_file mengembalikan pesan error format [Error:...], gunakan itu
-                 error_msg = extracted_text # Gunakan pesan error yang dikembalikan dari helper
-             else:
-                 error_msg += "Pastikan file tidak kosong, tidak terenkripsi, dan berisi teks yang dapat dibaca."
-             print(f"Error Ekstraksi Teks: {error_msg}")
-             # Kembalikan error ke frontend dengan status 400
-             return jsonify({"error": error_msg}), 400
+            error_msg = f"Tidak dapat membuat soal karena tidak ada teks valid diekstrak dari file '{original_filename}'."
+            if extracted_text.startswith("[Error:"):
+                error_msg = extracted_text
+            print(f"Error Ekstraksi Teks: {error_msg}")
+            return jsonify({"error": error_msg}), 400
 
         print(f"Ekstraksi teks berhasil, jumlah karakter: {len(extracted_text)}")
 
-        # 2. Ambil Parameter Form dari request.form
-        # Default values disesuaikan dengan UI atau kebutuhan
         difficulty = request.form.get('difficulty', 'sedang')
         question_type = request.form.get('questionType', 'campuran')
-        # start_page = request.form.get('startPage') # Diambil tapi belum diimplementasikan di ekstraksi
-        # end_page = request.form.get('endPage')     # Diambil tapi belum diimplementasikan
+        num_questions_str = request.form.get('numQuestions', '10')
+        num_questions = max(1, min(50, int(num_questions_str))) if num_questions_str.isdigit() else 10
 
-        # Ambil dan validasi jumlah soal
-        num_questions_str = request.form.get('numQuestions', '10') # Default '10' sesuai UI
-        num_questions = 10 # Default jika konversi gagal
-        try:
-             num_questions = int(num_questions_str)
-             # Batasi jumlah soal sesuai batasan UI (misal 1-50)
-             if num_questions <= 0:
-                  num_questions = 1 # Minimal 1 soal
-             if num_questions > 50:
-                  num_questions = 50 # Maksimal 50 soal (disesuaikan dengan prompt dan model capability)
-        except ValueError:
-             print(f"Peringatan: Nilai numQuestions '{num_questions_str}' tidak valid. Menggunakan default 10.")
-             # num_questions tetap 10 dari nilai default awal
+        print(f"Parameter diterima: Diff='{difficulty}', Num='{num_questions}', Type='{question_type}'")
 
-        print(f"Parameter diterima: Diff='{difficulty}', Num='{num_questions}', Type='{question_type}'") # start/end page log opsional
-
-        # 3. Buat Prompt dan Panggil Gemini
-        # Cek lagi apakah model AI siap sebelum memanggil
         if not model or not genai_configured:
-             print("Error Layanan AI: Model tidak terinisialisasi atau konfigurasi AI gagal (cek sebelum panggil AI).")
-             return jsonify({"error": "Layanan AI tidak terkonfigurasi atau tidak siap. Mohon coba lagi nanti."}), 503 # Status 503 Service Unavailable
+            print("Error Layanan AI: Model tidak terinisialisasi atau konfigurasi AI gagal.")
+            return jsonify({"error": "Layanan AI tidak terkonfigurasi atau tidak siap. Mohon coba lagi nanti."}), 503
 
-        # Buat prompt menggunakan teks yang diekstrak dan parameter
         prompt = create_gemini_prompt(extracted_text, difficulty, num_questions, question_type)
-
-        # Panggil fungsi AI. Fungsi ini mengembalikan list soal ATAU dictionary {"error": "Pesan error"}
         gemini_response_data = call_gemini_api(prompt)
 
-        # Cek apakah hasil dari call_gemini_api adalah error dictionary
         if isinstance(gemini_response_data, dict) and "error" in gemini_response_data:
             print(f"Error dari call_gemini_api: {gemini_response_data['error']}")
-            # Kembalikan error dari AI ke frontend dengan status yang sesuai (misal 500 Internal Server Error)
-            # Anda bisa menyesuaikan status code berdasarkan jenis error dari AI jika perlu
             return jsonify({"error": f"Proses pembuatan soal oleh AI gagal: {gemini_response_data['error']}"}), 500
-        else:
-            # Jika tidak ada error dictionary, asumsikan hasilnya adalah list soal
-            generated_questions = gemini_response_data
-            print(f"Call to Gemini API berhasil, {len(generated_questions)} soal dihasilkan.")
 
-        # 4. Kirim Hasil ke Frontend
-        # Sertakan pesan sukses yang lebih spesifik
-        success_message = f"Berhasil membuat {len(generated_questions)} soal dari file '{original_filename}'."
-        if len(generated_questions) == 0:
-             # Beri pesan berbeda jika AI tidak menghasilkan soal (meskipun tidak ada error teknis)
-             success_message = f"Proses selesai, namun AI tidak dapat membuat soal dari file '{original_filename}'. Mungkin teks terlalu sedikit, tidak relevan, atau respons AI kosong."
-
-        return jsonify({
-            "message": success_message,
-            "questions": generated_questions
-        })
-
-    # --- Penanganan Error Terstruktur ---
-    # Tangkap exception yang dilempar dari helper functions atau error lain di route ini
-    # Error FileNotFoundError (karena tidak ada penyimpanan file) tidak relevan lagi.
-    # Error I/O File (IOError) sekarang menangani kegagalan membaca dari stream di fungsi extract_text_from_file.
-    except (ValueError, IOError) as e: # Tangkap ValueError dari validasi form atau IOError dari ekstraksi teks stream
-         error_message = str(e)
-         print(f"Error Data/Format/I/O Stream: {error_message}")
-         # Mengembalikan error ke frontend dengan status 400 (Bad Request) atau 500 (Internal Server Error)
-         status_code = 400 if isinstance(e, ValueError) else 500
-         return jsonify({"error": f"Gagal memproses file atau data: {error_message}"}), status_code
-    # Exception ConnectionError dari call_gemini_api sekarang ditangani *di dalam* fungsi itu sendiri
-    # dan mengembalikan dictionary error, yang kemudian ditangkap di bagian 'if isinstance(gemini_response_data, dict)' di atas.
-    # Jadi, kita tidak perlu try/except ConnectionError di sini lagi untuk kasus dari call_gemini_api.
+        success_message = f"Berhasil membuat {len(gemini_response_data)} soal dari file '{original_filename}'."
+        return jsonify({"message": success_message, "questions": gemini_response_data})
 
     except Exception as e:
-        # Tangkap error tidak terduga lainnya yang mungkin terjadi di route ini
         print(f"Error Internal Tidak Terduga di /generate-soal: {e}")
-        traceback.print_exc() # Cetak detail error di log server (berguna untuk debugging)
-        # Jangan tampilkan detail traceback ke user di produksi untuk keamanan
+        traceback.print_exc()
         return jsonify({"error": "Terjadi kesalahan internal tidak terduga di server. Silakan coba lagi."}), 500
-
-    # Blok finally di sini tidak terlalu dibutuhkan karena tidak ada resource yang perlu dibersihkan
-    # seperti file temporer setelah perbaikan membaca dari stream.
-    # finally:
-    #     pass
 
 
 # Tambahkan rute untuk melayani file statis secara langsung jika WhiteNoise tidak berfungsi sempurna,
