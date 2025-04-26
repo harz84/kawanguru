@@ -2,24 +2,17 @@
   "version": 2,
   "builds": [
     {
-      "src": "app.py",         // Pastikan nama file utama Flask Anda benar
+      "src": "app.py",
       "use": "@vercel/python",
       "config": {
-        "maxLambdaSize": "50mb" // Naikkan batas ukuran jika perlu (tergantung paket)
+        "maxLambdaSize": "50mb"
       }
     }
   ],
   "routes": [
-    // Tidak perlu route khusus untuk /static/ jika WhiteNoise digunakan dengan benar.
-    // WhiteNoise akan mencegat request /static/ dari dalam app.py.
-    // Route ini mengirim SEMUA request lainnya ke aplikasi Python Anda.
     {
       "src": "/(.*)",
       "dest": "app.py"
     }
   ]
-  // Tambahkan env di sini jika tidak ingin via UI Vercel, tapi UI lebih aman untuk API Key
-  // "env": {
-  //   "GOOGLE_API_KEY": "@google-api-key-secret-name" // Jika pakai Vercel Secrets
-  // }
 }
